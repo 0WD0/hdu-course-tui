@@ -5,8 +5,9 @@ import sys
 
 
 class DownloaderManager:
-    def __init__(self, preferred_downloader=None):
+    def __init__(self, preferred_downloader=None, aria2_args=None):
         self.preferred_downloader = preferred_downloader
+        self.aria2_args = aria2_args or ["-j", "16", "-x", "16", "-s", "16", "-k", "1M"]
         self.terminals = [
             ("gnome-terminal", ["--", "bash", "-c"]),
             ("kitty", ["-e", "bash", "-c"]),
@@ -163,11 +164,9 @@ class DownloaderManager:
 
         # 1. Aria2c (Best for batch)
         if shutil.which("aria2c"):
-            # -j 16: Max 16 concurrent downloads
-            # -x 16: Max 16 connections PER server (per file)
-            # -s 16: Split file into 16 parts
-            # -k 1M: Min split size 1M
-            cmd = f"aria2c -i '{abs_list_file}' -d '{destination_dir}' -j 16 -x 16 -s 16 -k 1M"
+            args_str = " ".join(self.aria2_args)
+            cmd = f"aria2c -i '{abs_list_file}' -d '{destination_dir}' {args_str}"
+
             success, term = self._launch_terminal_command(
                 cmd, title="Batch Download (aria2c)"
             )
@@ -175,23 +174,14 @@ class DownloaderManager:
                 notify(f"Batch download started in {term} (aria2c)")
             else:
                 # Fallback background
-                subprocess.Popen(
-                    [
-                        "aria2c",
-                        "-i",
-                        abs_list_file,
-                        "-d",
-                        destination_dir,
-                        "-j",
-                        "16",
-                        "-x",
-                        "16",
-                        "-s",
-                        "16",
-                        "-k",
-                        "1M",
-                    ]
-                )
+                full_args = [
+                    "aria2c",
+                    "-i",
+                    abs_list_file,
+                    "-d",
+                    destination_dir,
+                ] + self.aria2_args
+                subprocess.Popen(full_args)
                 notify("Batch download started in background (aria2c)")
             return
 

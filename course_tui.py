@@ -60,6 +60,9 @@ def load_config(config_path):
             days_forward = config.get("days_forward", 30)
             end_date = (now + timedelta(days=days_forward)).strftime("%Y-%m-%d")
 
+        # Configurable Aria2 arguments (list of strings)
+        aria2_args = config.get("aria2_args", None)
+
         # Validate download_angles
         if download_angles is not None:
             if isinstance(download_angles, str):
@@ -73,7 +76,15 @@ def load_config(config_path):
                 f"Warning: 'cookies' or 'headers' missing or empty in '{config_path}'."
             )
 
-        return cookies, headers, downloader, download_angles, start_date, end_date
+        return (
+            cookies,
+            headers,
+            downloader,
+            download_angles,
+            start_date,
+            end_date,
+            aria2_args,
+        )
     except json.JSONDecodeError as e:
         print(f"Error: Failed to parse JSON configuration: {e}")
         sys.exit(1)
@@ -194,6 +205,7 @@ class CourseApp(App):
         download_angles=None,
         start_date=None,
         end_date=None,
+        aria2_args=None,
     ):
         super().__init__()
         self.cookies = cookies
@@ -204,11 +216,14 @@ class CourseApp(App):
         )
         self.start_date = start_date
         self.end_date = end_date
+        self.aria2_args = aria2_args
         self.course_data = defaultdict(list)
         self.current_course_name = None
         self.course_id_map = {}
         self.current_video_list = []
-        self.downloader_manager = DownloaderManager(preferred_downloader=downloader)
+        self.downloader_manager = DownloaderManager(
+            preferred_downloader=downloader, aria2_args=aria2_args
+        )
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -660,8 +675,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    cookies, headers, downloader, download_angles, start_date, end_date = load_config(
-        args.config
+    cookies, headers, downloader, download_angles, start_date, end_date, aria2_args = (
+        load_config(args.config)
     )
 
     app = CourseApp(
@@ -671,5 +686,6 @@ if __name__ == "__main__":
         download_angles=download_angles,
         start_date=start_date,
         end_date=end_date,
+        aria2_args=aria2_args,
     )
     app.run()

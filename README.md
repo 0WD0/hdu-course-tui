@@ -74,6 +74,7 @@ pip install httpx textual
 > *   `download_angles`: 可选，用于批量下载时过滤视角。可选值：`"Teacher"`, `"Student"`, `"PPT"`。
 > *   `start_date` / `end_date`: 可选，精确过滤课程日期范围 (YYYY-MM-DD)。
 > *   如果不配置具体日期，默认抓取过去 150 天到未来 30 天的课程。
+> *   `aria2_args`: 可选，自定义 aria2c 下载参数列表。默认为 `["-j", "16", "-x", "16", "-s", "16", "-k", "1M"]`。
 
 ## 📖 使用说明
 
