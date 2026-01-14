@@ -129,6 +129,7 @@ python3 course_tui.py
 2.  移动光标选中你要下载的课（如"ACM程序设计"）。
 3.  按 `d` 键。
 4.  程序会自动抓取该课程下所有的视频链接（包含不同视角），生成下载列表。
+    *   为避免并发导致接口返回不完整，抓取 URL 这一步会有几秒钟的等待，这是正常现象。
 5.  自动调用 `aria2c` 开启 16 线程飞速下载到 `Downloads/课程名/` 目录下。
 
 ## ❓ 常见问题 (FAQ)
@@ -138,6 +139,17 @@ python3 course_tui.py
 
 **A:** Cookie 已过期。请重新登录网站，按照上面的步骤重新获取 Cookie 并更新 `config.json`。
 > 💡 Cookie 通常在 **24 小时** 左右过期，或者在你退出登录后失效。
+</details>
+
+<details>
+<summary><b>Q: 下载中出现 EOF / Timeout？</b></summary>
+
+**A:** 下载链接里包含 `auth_key`，有时效。
+大量排队时可能过期，导致 EOF/Timeout。
+
+建议：
+- 尽量在生成 URL 后尽快开始下载。
+- 如果遇到失败，重新生成一次 URL 再下载即可。
 </details>
 
 <details>
