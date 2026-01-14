@@ -125,6 +125,14 @@ def angle_suffix(video_item, default_index=None):
     return angle_label(angle_index)
 
 
+def is_downloadable_record(record):
+    return record.get("vodDeleteStatus", 0) == 0
+
+
+def filter_downloadable_records(records):
+    return [r for r in records if is_downloadable_record(r)]
+
+
 class AngleSelectionModal(Screen):
     BINDINGS = [("escape", "cancel", "Cancel")]
 
@@ -436,9 +444,7 @@ class CourseApp(App):
             self.notify("No recordings to download", severity="warning")
             return
 
-        eligible_recordings = [
-            r for r in recordings if r.get("vodDeleteStatus", 0) == 0
-        ]
+        eligible_recordings = filter_downloadable_records(recordings)
         skipped = len(recordings) - len(eligible_recordings)
         if skipped:
             self.notify(
@@ -613,7 +619,7 @@ class CourseApp(App):
         table.clear()
 
         recordings = self.course_data.get(course_name, [])
-        visible_recordings = [r for r in recordings if r.get("vodDeleteStatus", 0) == 0]
+        visible_recordings = filter_downloadable_records(recordings)
         visible_recordings.sort(key=lambda x: x.get("courBeginTime", ""), reverse=True)
 
         for rec in visible_recordings:
@@ -708,19 +714,17 @@ class CourseApp(App):
             await list_view.clear()
 
             sorted_courses = sorted(self.course_data.keys())
+            visible_total = 0
             for index, course in enumerate(sorted_courses):
-                count = sum(
-                    1
-                    for r in self.course_data[course]
-                    if r.get("vodDeleteStatus", 0) == 0
-                )
+                count = len(filter_downloadable_records(self.course_data[course]))
+                visible_total += count
                 safe_id = f"course-{uuid.uuid4().hex}"
                 self.course_id_map[safe_id] = course
 
                 list_view.append(ListItem(Label(f"{course} ({count})"), id=safe_id))
 
             self.query_one("#status_bar", Static).update(
-                f"Loaded {len(filtered_records)} recordings (filtered from {len(all_records)}) across {len(self.course_data)} courses."
+                f"Loaded {visible_total} recordings (filtered from {len(all_records)}) across {len(self.course_data)} courses."
             )
 
             if sorted_courses:
