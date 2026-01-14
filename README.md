@@ -43,32 +43,26 @@ pip install -r requirements.txt
 ### 3. 配置账号 (获取 Cookie)
 由于杭电统一认证系统的复杂性，本工具需要你提供登录后的凭证。
 
-#### 🌟 方案 A：使用浏览器插件 (推荐，最简单)
-推荐使用 **Cookie-Editor** 插件，可视化复制，无需懂代码。
+#### 🌟 方案 A：使用浏览器插件 (最简单)
+1.  安装 **Cookie-Editor** 插件：[Chrome/Edge](https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm) | [Firefox](https://addons.mozilla.org/zh-CN/firefox/addon/cookie-editor/)
+2.  登录 [HDU 智慧教室平台](https://course.hdu.edu.cn/)。
+3.  点击插件图标，搜索 `jy`，找到 **`jy-application-vod-he`**，复制其 Value。
 
-1.  **安装插件**：
-    *   [Chrome / Edge 版本](https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm)
-    *   [Firefox 版本](https://addons.mozilla.org/zh-CN/firefox/addon/cookie-editor/)
-2.  **登录网站**：用浏览器登录 [HDU 智慧教室平台](https://course.hdu.edu.cn/)。
-3.  **复制 Cookie**：
-    *   点击浏览器右上角的 **Cookie-Editor** 图标（类似饼干的形状）。
-    *   在搜索框输入 `jy`。
-    *   找到名为 **`jy-application-vod-he`** 的条目。
-    *   点击它，复制 **Value (值)** 一栏的内容。
-4.  **填入配置**：将复制的内容填入 `config.json` 的 `cookies` 字段。
+> ⚠️ 如果插件中**找不到**这个 Cookie，请使用下面的方案 B。
 
-#### 🤓 方案 B：F12 开发者工具 (免安装)
-1.  按 `F12` 打开开发者工具，点击"网络 (Network)"标签。
-2.  刷新页面，找到任意一个 API 请求（如 `curriculum`）。
-3.  在"请求头 (Request Headers)"中找到 `Cookie` 字段，复制整个字符串。
+#### 🔧 方案 B：F12 开发者工具 (备选)
+1.  登录 [HDU 智慧教室平台](https://course.hdu.edu.cn/)。
+2.  按 `F12` 打开开发者工具，点击 **"网络 (Network)"** 标签。
+3.  刷新页面，点击任意一个 API 请求（如 `curriculum`）。
+4.  在 **"请求标头 (Request Headers)"** 中找到 `Cookie:` 字段，复制整个字符串。
 
 ### 4. 填写配置文件
 在项目根目录创建 `config.json`。
 
-**最简配置 (只需一行 Cookie)：**
+**最简配置 (直接粘贴整个 Cookie 字符串)：**
 ```json
 {
-    "cookies": "jy-application-vod-he=你刚才复制的一长串字符..."
+    "cookies": "jy-application-vod-he=xxx; route=xxx; ..."
 }
 ```
 
