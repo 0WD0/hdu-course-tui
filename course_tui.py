@@ -29,8 +29,9 @@ DETAIL_API_URL = (
 def load_config(config_path):
     """Load configuration from a JSON file."""
     if not os.path.exists(config_path):
-        print(f"Error: Configuration file '{config_path}' not found.")
-        print("Please create a JSON file with 'cookies' and 'headers' fields.")
+        print(f"错误: 配置文件 '{config_path}' 不存在")
+        print("请参考 config.json.example 创建配置文件")
+        print("详细说明请查看 README.md")
         sys.exit(1)
 
     try:
@@ -53,17 +54,42 @@ def load_config(config_path):
                 print("Warning: 'download_angles' must be a list of strings. Ignoring.")
                 download_angles = None
 
-        if not cookies or not headers:
-            print(
-                f"Warning: 'cookies' or 'headers' missing or empty in '{config_path}'."
-            )
+        if not cookies:
+            print(f"错误: 配置文件中缺少 'cookies' 字段")
+            print("请在 config.json 中添加 cookies 配置")
+            sys.exit(1)
+        
+        if not headers:
+            print(f"警告: 配置文件中缺少 'headers' 字段")
+            print("建议添加 headers 配置以提高兼容性")
+        
+        # Validate required cookies
+        required_cookies = ["jy-application-vod-he", "route"]
+        missing_cookies = [c for c in required_cookies if c not in cookies]
+        if missing_cookies:
+            print(f"错误: 缺少必需的 Cookie: {', '.join(missing_cookies)}")
+            print(f"当前 cookies 包含: {', '.join(cookies.keys())}")
+            print("\n请确保从浏览器的【请求标头】中复制了以下 Cookie:")
+            for cookie_name in required_cookies:
+                print(f"  - {cookie_name}")
+            sys.exit(1)
+        
+        print(f"配置加载成功:")
+        print(f"  - Cookies: {len(cookies)} 项 ({', '.join(cookies.keys())})")
+        print(f"  - Headers: {len(headers)} 项")
+        if downloader:
+            print(f"  - 下载器: {downloader}")
+        if download_angles:
+            print(f"  - 视角过滤: {', '.join(download_angles)}")
 
         return cookies, headers, downloader, download_angles
     except json.JSONDecodeError as e:
-        print(f"Error: Failed to parse JSON configuration: {e}")
+        print(f"错误: 配置文件 JSON 格式错误: {e}")
+        print(f"请检查 {config_path} 的格式是否正确")
+        print("提示: JSON 文件不支持注释，确保没有 // 或 /* */ 注释")
         sys.exit(1)
     except Exception as e:
-        print(f"Error loading configuration: {e}")
+        print(f"错误: 加载配置文件失败: {type(e).__name__}: {e}")
         sys.exit(1)
 
 
@@ -273,7 +299,7 @@ class CourseApp(App):
         params = {"courseId": course_id}
         try:
             async with httpx.AsyncClient(
-                cookies=self.cookies, headers=self.headers, verify=False
+                cookies=self.cookies, headers=self.headers, verify=False, timeout=30.0
             ) as client:
                 response = await client.get(DETAIL_API_URL, params=params)
                 response.raise_for_status()
@@ -320,7 +346,14 @@ class CourseApp(App):
 
                 return results
 
+        except httpx.TimeoutException:
+            self.notify(f"获取视频 {course_id} 超时", severity="warning")
+            return []
+        except httpx.ConnectError:
+            self.notify(f"获取视频 {course_id} 连接失败", severity="warning")
+            return []
         except Exception as e:
+            self.notify(f"获取视频 {course_id} 失败: {str(e)}", severity="warning")
             return []
 
     async def download_all_course_videos(self, course_name):
@@ -382,9 +415,20 @@ class CourseApp(App):
 
         try:
             async with httpx.AsyncClient(
-                cookies=self.cookies, headers=self.headers, verify=False
+                cookies=self.cookies, headers=self.headers, verify=False, timeout=30.0
             ) as client:
                 response = await client.get(DETAIL_API_URL, params=params)
+                
+                # Check HTTP status
+                if response.status_code != 200:
+                    error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                    self.query_one("#status_bar", Static).update(f"Error: {error_msg}")
+                    self.notify(
+                        f"获取视频失败 (HTTP {response.status_code})\n请检查 Cookie 是否正确",
+                        severity="error"
+                    )
+                    return
+                
                 response.raise_for_status()
                 data = response.json()
 
@@ -405,9 +449,22 @@ class CourseApp(App):
                 else:
                     self.perform_video_action(video_list[0], action)
 
+        except httpx.TimeoutException:
+            error_msg = "请求超时"
+            self.query_one("#status_bar", Static).update(error_msg)
+            self.notify(error_msg, severity="error")
+        except httpx.ConnectError:
+            error_msg = "无法连接到服务器"
+            self.query_one("#status_bar", Static).update(error_msg)
+            self.notify(error_msg, severity="error")
+        except json.JSONDecodeError as e:
+            error_msg = f"API 返回数据格式错误"
+            self.query_one("#status_bar", Static).update(error_msg)
+            self.notify(f"{error_msg}，Cookie 可能已过期", severity="error")
         except Exception as e:
-            self.query_one("#status_bar", Static).update(f"Error fetching video: {e}")
-            self.notify(f"Error: {e}", severity="error")
+            error_msg = f"Error: {type(e).__name__}: {str(e)}"
+            self.query_one("#status_bar", Static).update(error_msg)
+            self.notify(error_msg, severity="error")
 
     def perform_video_action(self, target_video, action):
         """Execute the requested action on the selected video."""
@@ -487,13 +544,41 @@ class CourseApp(App):
 
         try:
             async with httpx.AsyncClient(
-                cookies=self.cookies, headers=self.headers, verify=False
+                cookies=self.cookies, headers=self.headers, verify=False, timeout=30.0
             ) as client:
                 response = await client.get(CURRICULUM_API_URL, params=params)
+                
+                # Check HTTP status
+                if response.status_code != 200:
+                    error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                    self.query_one("#status_bar", Static).update(f"Error: {error_msg}")
+                    self.notify(
+                        f"认证失败或网络错误 (HTTP {response.status_code})\n请检查 Cookie 是否正确或已过期",
+                        severity="error",
+                        timeout=10
+                    )
+                    return
+                
                 response.raise_for_status()
                 data = response.json()
 
+                # Validate response structure
+                if not isinstance(data, dict) or "data" not in data:
+                    error_msg = f"API 返回格式错误: {str(data)[:100]}"
+                    self.query_one("#status_bar", Static).update(error_msg)
+                    self.notify(error_msg, severity="error")
+                    return
+
                 records = data.get("data", {}).get("records", [])
+                
+                if not records:
+                    self.query_one("#status_bar", Static).update("未找到课程记录")
+                    self.notify(
+                        "未找到任何课程\n可能原因：\n1. Cookie 已过期，请重新获取\n2. 时间范围内没有课程\n3. 账号权限不足",
+                        severity="warning",
+                        timeout=10
+                    )
+                    return
 
                 self.course_data.clear()
                 self.course_id_map.clear()
@@ -524,9 +609,26 @@ class CourseApp(App):
                         self.current_course_name = course_name
                         self.update_recordings_table(course_name)
 
+        except httpx.TimeoutException:
+            error_msg = "请求超时，请检查网络连接"
+            self.query_one("#status_bar", Static).update(error_msg)
+            self.notify(error_msg, severity="error", timeout=10)
+        except httpx.ConnectError:
+            error_msg = "无法连接到服务器，请检查网络或 VPN"
+            self.query_one("#status_bar", Static).update(error_msg)
+            self.notify(error_msg, severity="error", timeout=10)
+        except json.JSONDecodeError as e:
+            error_msg = f"API 返回数据格式错误: {str(e)}"
+            self.query_one("#status_bar", Static).update(error_msg)
+            self.notify(f"{error_msg}\n可能 Cookie 已过期", severity="error", timeout=10)
         except Exception as e:
-            self.query_one("#status_bar", Static).update(f"Error: {e}")
-            self.notify(f"Error loading courses: {e}", severity="error")
+            error_msg = f"加载课程失败: {type(e).__name__}: {str(e)}"
+            self.query_one("#status_bar", Static).update(error_msg)
+            self.notify(
+                f"{error_msg}\n\n请检查：\n1. Cookie 是否正确\n2. 网络连接是否正常\n3. 是否需要使用 VPN",
+                severity="error",
+                timeout=15
+            )
 
     async def action_refresh(self):
         await self.load_courses()
@@ -589,20 +691,37 @@ class CourseApp(App):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="HDU Course TUI")
-    parser.add_argument(
-        "--config",
-        default="config.json",
-        help="Path to configuration file (default: config.json)",
-    )
-    args = parser.parse_args()
+    try:
+        parser = argparse.ArgumentParser(description="HDU Course TUI")
+        parser.add_argument(
+            "--config",
+            default="config.json",
+            help="Path to configuration file (default: config.json)",
+        )
+        args = parser.parse_args()
 
-    cookies, headers, downloader, download_angles = load_config(args.config)
+        cookies, headers, downloader, download_angles = load_config(args.config)
 
-    app = CourseApp(
-        cookies=cookies,
-        headers=headers,
-        downloader=downloader,
-        download_angles=download_angles,
-    )
-    app.run()
+        app = CourseApp(
+            cookies=cookies,
+            headers=headers,
+            downloader=downloader,
+            download_angles=download_angles,
+        )
+        app.run()
+    except KeyboardInterrupt:
+        print("\n程序已被用户中断")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n程序异常退出:")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        print("\n请检查:")
+        print("1. config.json 配置是否正确")
+        print("2. Cookie 是否已过期（需要重新获取）")
+        print("3. 网络连接是否正常")
+        print("4. 如果使用 VPN，确保 VPN 已连接")
+        import traceback
+        print("\n详细错误信息:")
+        traceback.print_exc()
+        sys.exit(1)
