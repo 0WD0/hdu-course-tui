@@ -454,14 +454,20 @@ class CourseApp(App):
             f"Preparing batch download for {len(eligible_recordings)} recordings..."
         )
 
+        semaphore = asyncio.Semaphore(6)
+
+        async def fetch_with_limit(course_id, file_prefix):
+            async with semaphore:
+                return await self.fetch_video_url(
+                    course_id, batch_mode=True, file_prefix=file_prefix
+                )
+
         tasks = []
         for rec in eligible_recordings:
             course_id = str(rec.get("id"))
             raw_time = rec.get("courBeginTime", "UnknownTime")
             safe_time = "".join([c if c.isalnum() else "_" for c in raw_time])
-            tasks.append(
-                self.fetch_video_url(course_id, batch_mode=True, file_prefix=safe_time)
-            )
+            tasks.append(fetch_with_limit(course_id, safe_time))
 
         results = await asyncio.gather(*tasks)
 
