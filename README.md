@@ -90,6 +90,7 @@ pip install -r requirements.txt
 | `cookies`                 | ✅   | 核心凭证。只需 `jy-application-vod-he` 即可。支持字符串或字典格式。           |
 | `download_angles`         | ❌   | 批量下载时过滤视角。可选值：`"Teacher"`, `"Student"`, `"PPT"`。默认下载全部。 |
 | `start_date` / `end_date` | ❌   | 过滤课程日期范围 (YYYY-MM-DD)。默认：过去 150 天到未来 30 天。                |
+| `download_dir`            | ❌   | 下载目录。默认：`"Downloads"`。                                               |
 | `downloader`              | ❌   | 指定下载器：`"aria2c"`, `"fdm"`, `"wget"`。默认自动检测。                     |
 | `aria2_args`              | ❌   | 自定义 aria2c 参数。默认：`["-j", "16", "-x", "16", "-s", "16", "-k", "1M"]`  |
 
