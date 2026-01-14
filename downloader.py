@@ -51,6 +51,24 @@ class DownloaderManager:
 
         return False, None
 
+    def _aria2_args_with_defaults(self):
+        args = list(self.aria2_args)
+
+        def has_flag(flag_name):
+            return any(
+                arg == flag_name or arg.startswith(f"{flag_name}=") for arg in args
+            )
+
+        defaults = []
+        if not has_flag("--auto-file-renaming"):
+            defaults.append("--auto-file-renaming=false")
+        if "-c" not in args:
+            defaults.append("-c")
+        if not has_flag("--max-tries"):
+            defaults.append("--max-tries=5")
+
+        return defaults + args
+
     def download_video(
         self,
         video_url,
@@ -110,8 +128,7 @@ class DownloaderManager:
                                 else f'wget "{video_url}"'
                             )
                     elif preferred == "aria2c":
-                        safety_args = ["--auto-file-renaming=false", "-c"]
-                        final_args = safety_args + self.aria2_args
+                        final_args = self._aria2_args_with_defaults()
                         args_str = " ".join(final_args)
                         if output_filename:
                             if destination_dir:
@@ -174,8 +191,7 @@ class DownloaderManager:
                         )
                         return
                     if preferred == "aria2c":
-                        safety_args = ["--auto-file-renaming=false", "-c"]
-                        final_args = safety_args + self.aria2_args
+                        final_args = self._aria2_args_with_defaults()
                         if output_filename:
                             if destination_dir:
                                 subprocess.Popen(
@@ -255,8 +271,7 @@ class DownloaderManager:
                 )
         elif shutil.which("aria2c"):
             cli_tool = "aria2c"
-            safety_args = ["--auto-file-renaming=false", "-c"]
-            final_args = safety_args + self.aria2_args
+            final_args = self._aria2_args_with_defaults()
             args_str = " ".join(final_args)
             if output_filename:
                 if destination_dir:
@@ -337,8 +352,7 @@ class DownloaderManager:
                 notify(f"Background download failed: {e}", severity="error")
         elif shutil.which("aria2c"):
             try:
-                safety_args = ["--auto-file-renaming=false", "-c"]
-                final_args = safety_args + self.aria2_args
+                final_args = self._aria2_args_with_defaults()
                 if output_filename:
                     if destination_dir:
                         subprocess.Popen(
@@ -407,8 +421,7 @@ class DownloaderManager:
 
         # 1. Aria2c (Best for batch)
         if shutil.which("aria2c"):
-            safety_args = ["--auto-file-renaming=false", "-c"]
-            final_args = safety_args + self.aria2_args
+            final_args = self._aria2_args_with_defaults()
 
             args_str = " ".join(final_args)
             if self.is_windows:

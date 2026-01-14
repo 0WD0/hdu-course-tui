@@ -395,9 +395,18 @@ class CourseApp(App):
         results = await asyncio.gather(*tasks)
 
         all_downloads = []
+        recordings_with_urls = 0
         for item_list in results:
             if item_list:
+                recordings_with_urls += 1
                 all_downloads.extend(item_list)
+
+        if recordings_with_urls < len(recordings):
+            self.notify(
+                f"Only {recordings_with_urls}/{len(recordings)} recordings returned URLs. "
+                "Some recordings may not have VOD yet or access may be limited.",
+                severity="warning",
+            )
 
         if not all_downloads:
             self.notify("No videos found (check config angles?)", severity="warning")

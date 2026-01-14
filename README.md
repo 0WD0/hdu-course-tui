@@ -92,7 +92,16 @@ pip install -r requirements.txt
 | `start_date` / `end_date` | ❌   | 过滤课程日期范围 (YYYY-MM-DD)。默认：过去 150 天到未来 30 天。                |
 | `download_dir`            | ❌   | 下载目录。默认：`"Downloads"`。                                               |
 | `downloader`              | ❌   | 指定下载器：`"aria2c"`, `"fdm"`, `"wget"`。默认自动检测。                     |
-| `aria2_args`              | ❌   | 自定义 aria2c 参数。默认：`["-j", "16", "-x", "16", "-s", "16", "-k", "1M"]`  |
+| `aria2_args`              | ❌   | 自定义 aria2c 参数。默认包含自动重试与断点续传。                          |
+
+**aria2 参数说明（默认）**
+- `--auto-file-renaming=false`: 文件存在时不自动改名（避免生成 .1.mp4）。
+- `-c`: 断点续传；文件已完整时会跳过。
+- `--max-tries=5`: 失败时最多重试 5 次。
+- `-j 16`: 同时下载的文件数上限是 16，超过会排队依次下载。
+- `-x 16`: 单个文件的最大连接数（每个服务器）。
+- `-s 16`: 单个文件的分片数。
+- `-k 1M`: 分片最小大小。
 
 </details>
 

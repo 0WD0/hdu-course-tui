@@ -11,6 +11,9 @@
     "start_date": "2024-09-01",
     "end_date": "2025-01-31",
     "aria2_args": [
+        "--auto-file-renaming=false",
+        "-c",
+        "--max-tries=5",
         "-j", "16",
         "-x", "16",
         "-s", "16",
