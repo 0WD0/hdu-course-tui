@@ -50,6 +50,8 @@ def load_config(config_path):
 
         headers = config.get("headers", {})
         downloader = config.get("downloader", None)
+        if isinstance(downloader, str) and downloader.lower() in {"aria2", "aria2c"}:
+            downloader = "aria2c"
 
         # New config for filtering angles: list of strings, e.g., ["Teacher", "PPT"]
         # Default is None, meaning download ALL angles.
