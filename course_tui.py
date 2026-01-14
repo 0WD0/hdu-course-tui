@@ -478,51 +478,70 @@ class CourseApp(App):
         start_date = (now - timedelta(days=150)).strftime("%Y-%m-%d")
         end_date = (now + timedelta(days=30)).strftime("%Y-%m-%d")
 
-        params = {
-            "beginTime": start_date,
-            "endTime": end_date,
-            "page.pageIndex": 1,
-            "page.pageSize": 500,
-        }
-
         try:
+            all_records = []
+            page_index = 1
+            page_size = 500  # We use 500 to be safe, or 1000 if supported. User said 1000 is max.
+
             async with httpx.AsyncClient(
                 cookies=self.cookies, headers=self.headers, verify=False
             ) as client:
-                response = await client.get(CURRICULUM_API_URL, params=params)
-                response.raise_for_status()
-                data = response.json()
+                while True:
+                    self.query_one("#status_bar", Static).update(
+                        f"Loading curriculum (Page {page_index})..."
+                    )
 
-                records = data.get("data", {}).get("records", [])
+                    params = {
+                        "beginTime": start_date,
+                        "endTime": end_date,
+                        "page.pageIndex": page_index,
+                        "page.pageSize": page_size,
+                    }
 
-                self.course_data.clear()
-                self.course_id_map.clear()
-                for record in records:
-                    subj_name = record.get("subjName", "Unknown Course")
-                    self.course_data[subj_name].append(record)
+                    response = await client.get(CURRICULUM_API_URL, params=params)
+                    response.raise_for_status()
+                    data = response.json()
 
-                list_view = self.query_one("#course-list", ListView)
-                await list_view.clear()
+                    new_records = data.get("data", {}).get("records", [])
+                    if not new_records:
+                        break
 
-                sorted_courses = sorted(self.course_data.keys())
-                for index, course in enumerate(sorted_courses):
-                    count = len(self.course_data[course])
-                    safe_id = f"course-{uuid.uuid4().hex}"
-                    self.course_id_map[safe_id] = course
+                    all_records.extend(new_records)
 
-                    list_view.append(ListItem(Label(f"{course} ({count})"), id=safe_id))
+                    # If we got fewer records than requested, we've reached the last page
+                    if len(new_records) < page_size:
+                        break
 
-                self.query_one("#status_bar", Static).update(
-                    f"Loaded {len(records)} recordings across {len(self.course_data)} courses."
-                )
+                    page_index += 1
 
-                if sorted_courses:
-                    list_view.index = 0
-                    first_item = list_view.children[0]
-                    if first_item and first_item.id in self.course_id_map:
-                        course_name = self.course_id_map[first_item.id]
-                        self.current_course_name = course_name
-                        self.update_recordings_table(course_name)
+            self.course_data.clear()
+            self.course_id_map.clear()
+            for record in all_records:
+                subj_name = record.get("subjName", "Unknown Course")
+                self.course_data[subj_name].append(record)
+
+            list_view = self.query_one("#course-list", ListView)
+            await list_view.clear()
+
+            sorted_courses = sorted(self.course_data.keys())
+            for index, course in enumerate(sorted_courses):
+                count = len(self.course_data[course])
+                safe_id = f"course-{uuid.uuid4().hex}"
+                self.course_id_map[safe_id] = course
+
+                list_view.append(ListItem(Label(f"{course} ({count})"), id=safe_id))
+
+            self.query_one("#status_bar", Static).update(
+                f"Loaded {len(all_records)} recordings across {len(self.course_data)} courses."
+            )
+
+            if sorted_courses:
+                list_view.index = 0
+                first_item = list_view.children[0]
+                if first_item and first_item.id in self.course_id_map:
+                    course_name = self.course_id_map[first_item.id]
+                    self.current_course_name = course_name
+                    self.update_recordings_table(course_name)
 
         except Exception as e:
             self.query_one("#status_bar", Static).update(f"Error: {e}")
