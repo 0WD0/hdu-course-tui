@@ -24,6 +24,9 @@ CURRICULUM_API_URL = (
 DETAIL_API_URL = (
     "https://course.hdu.edu.cn/jy-application-vod-he-hdu/v1/course_vod_urls"
 )
+SUBJECT_VOD_LIST_API_URL = (
+    "https://course.hdu.edu.cn/jy-application-vod-he-hdu/v1/subject_vod_list"
+)
 
 
 def load_config(config_path):
@@ -372,9 +375,63 @@ class CourseApp(App):
         except Exception:
             return []
 
+    async def fetch_subject_vod_list(self, tecl_id):
+        all_records = []
+        page_index = 1
+        page_size = 1000
+        params_base = {
+            "page.pageSize": page_size,
+            "page.orders[0].asc": "true",
+            "page.orders[0].field": "courBeginTime",
+        }
+
+        async with httpx.AsyncClient(
+            cookies=self.cookies, headers=self.headers, verify=False
+        ) as client:
+            while True:
+                params = {
+                    **params_base,
+                    "page.pageIndex": page_index,
+                    "teclIds": str(tecl_id),
+                }
+                response = await client.get(SUBJECT_VOD_LIST_API_URL, params=params)
+                response.raise_for_status()
+                data = response.json()
+                records = data.get("data", {}).get("records", [])
+                if not records:
+                    break
+                all_records.extend(records)
+                if len(records) < page_size:
+                    break
+                page_index += 1
+
+        return all_records
+
     async def download_all_course_videos(self, course_name):
         """Concurrent download of all videos (filtered by angles) for the current course."""
         recordings = self.course_data.get(course_name, [])
+        if not recordings:
+            self.notify("No recordings to download", severity="warning")
+            return
+
+        base_record = recordings[0]
+        tecl_id = base_record.get("teclId")
+        subj_id = base_record.get("subjId")
+
+        if tecl_id and subj_id:
+            subject_records = await self.fetch_subject_vod_list(tecl_id)
+            recordings = [r for r in subject_records if r.get("subjId") == subj_id]
+            if self.start_date and self.end_date:
+                filtered_records = []
+                for record in recordings:
+                    begin_time = record.get("courBeginTime", "")
+                    if not begin_time:
+                        continue
+                    rec_date = begin_time.split(" ")[0]
+                    if self.start_date <= rec_date <= self.end_date:
+                        filtered_records.append(record)
+                recordings = filtered_records
+
         if not recordings:
             self.notify("No recordings to download", severity="warning")
             return
