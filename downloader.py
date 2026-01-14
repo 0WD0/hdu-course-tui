@@ -164,7 +164,10 @@ class DownloaderManager:
 
         # 1. Aria2c (Best for batch)
         if shutil.which("aria2c"):
-            args_str = " ".join(self.aria2_args)
+            safety_args = ["--auto-file-renaming=false", "-c"]
+            final_args = safety_args + self.aria2_args
+
+            args_str = " ".join(final_args)
             cmd = f"aria2c -i '{abs_list_file}' -d '{destination_dir}' {args_str}"
 
             success, term = self._launch_terminal_command(
@@ -180,7 +183,7 @@ class DownloaderManager:
                     abs_list_file,
                     "-d",
                     destination_dir,
-                ] + self.aria2_args
+                ] + final_args
                 subprocess.Popen(full_args)
                 notify("Batch download started in background (aria2c)")
             return
