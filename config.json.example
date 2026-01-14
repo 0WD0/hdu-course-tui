@@ -1,14 +1,16 @@
 {
     "cookies": {
-        "jy-application-vod-he": "从浏览器开发者工具的【请求标头】中复制，不是响应标头！",
-        "SESSION": "从浏览器开发者工具的【请求标头】中复制，不是响应标头！",
-        "cmbox": "从浏览器开发者工具的【请求标头】中复制，不是响应标头！",
-        "route": "从浏览器开发者工具的【请求标头】中复制，不是响应标头！",
-        "_webvpn_key": "如果使用VPN访问，从浏览器开发者工具的【请求标头】中复制，不是响应标头！",
-        "at_check": "true"
+        "jy-application-vod-he": "必需：从浏览器开发者工具的【请求标头】Cookie 字段复制",
+        "route": "必需：从浏览器开发者工具的【请求标头】Cookie 字段复制",
+        "_bl_usercode": "可选：如果你的 Cookie 中有这个，就复制进来",
+        "_bl_dept": "可选：如果你的 Cookie 中有这个，就复制进来",
+        "_webvpn_key": "可选：使用 VPN 时通常会有",
+        "webvpn_username": "可选：使用 VPN 时通常会有",
+        "SESSION": "可选：部分用户有，没有就不填",
+        "cmbox": "可选：部分用户有，没有就不填"
     },
     "headers": {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
         "Accept": "application/json, text/plain, */*",
         "Referer": "https://course.hdu.edu.cn/?type=cas"
     },
