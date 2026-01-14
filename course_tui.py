@@ -318,11 +318,21 @@ class CourseApp(App):
         else:
             self.notify("No recording selected", severity="warning")
 
+    def _angle_suffix(self, video_item):
+        raw_view_name = video_item.get("viewName", "")
+        angle_index = video_item.get("_angle_index")
+
+        if "PPT" in raw_view_name or angle_index == 2:
+            return "PPT"
+        if "学生" in raw_view_name or "Student" in raw_view_name or angle_index == 1:
+            return "Student"
+        if "教师" in raw_view_name or "Teacher" in raw_view_name or angle_index == 0:
+            return "Teacher"
+        if isinstance(angle_index, int):
+            return f"Angle{angle_index + 1}"
+        return "Angle"
+
     async def fetch_video_url(self, course_id, batch_mode=False, file_prefix=""):
-        """
-        Helper to fetch video URL(s) for a given course ID.
-        Returns a list of dictionaries: [{'url': url, 'filename': filename}, ...]
-        """
         params = {"courseId": course_id}
         try:
             async with httpx.AsyncClient(
@@ -343,26 +353,10 @@ class CourseApp(App):
                     if not url:
                         continue
 
-                    # Determine angle suffix
-                    raw_view_name = v.get("viewName", "")
+                    v["_angle_index"] = i
+                    suffix = self._angle_suffix(v)
 
-                    if "PPT" in raw_view_name or i == 2:
-                        suffix = "PPT"
-                    elif (
-                        "学生" in raw_view_name or "Student" in raw_view_name or i == 1
-                    ):
-                        suffix = "Student"
-                    elif (
-                        "教师" in raw_view_name or "Teacher" in raw_view_name or i == 0
-                    ):
-                        suffix = "Teacher"
-                    else:
-                        suffix = f"Angle{i + 1}"
-
-                    # Check if this angle is allowed by configuration
-                    # Only apply filter in batch mode, or if user strictly wants to filter always (usually batch)
                     if batch_mode and self.download_angles:
-                        # Case-insensitive check
                         if suffix.lower() not in [
                             a.lower() for a in self.download_angles
                         ]:
@@ -373,7 +367,7 @@ class CourseApp(App):
 
                 return results
 
-        except Exception as e:
+        except Exception:
             return []
 
     async def download_all_course_videos(self, course_name):
@@ -427,7 +421,6 @@ class CourseApp(App):
         )
 
     async def load_video_urls(self, course_id, action="browser"):
-        """Fetch video URLs and perform action."""
         self.query_one("#status_bar", Static).update(
             f"Fetching video URLs for course {course_id}..."
         )
@@ -449,21 +442,31 @@ class CourseApp(App):
                     )
                     return
 
-                # Handle multiple angles or single video
+                for i, v in enumerate(video_list):
+                    v["_angle_index"] = i
+
                 if len(video_list) > 1:
                     self.push_screen(
                         AngleSelectionModal(video_list),
-                        lambda v: self.perform_video_action(v, action),
+                        lambda v: self.perform_video_action(v, action, course_id),
                     )
                 else:
-                    self.perform_video_action(video_list[0], action)
+                    self.perform_video_action(video_list[0], action, course_id)
 
         except Exception as e:
             self.query_one("#status_bar", Static).update(f"Error fetching video: {e}")
             self.notify(f"Error: {e}", severity="error")
 
-    def perform_video_action(self, target_video, action):
-        """Execute the requested action on the selected video."""
+    def _record_by_id(self, course_id):
+        if not self.current_course_name:
+            return None
+        recordings = self.course_data.get(self.current_course_name, [])
+        for rec in recordings:
+            if str(rec.get("id")) == str(course_id):
+                return rec
+        return None
+
+    def perform_video_action(self, target_video, action, course_id=None):
         if not target_video:
             self.notify("Selection cancelled", severity="information")
             return
@@ -500,9 +503,19 @@ class CourseApp(App):
             else:
                 destination_dir = self.download_dir
 
+            output_filename = None
+            if course_id is not None:
+                record = self._record_by_id(course_id)
+                if record:
+                    raw_time = record.get("courBeginTime", "UnknownTime")
+                    safe_time = "".join([c if c.isalnum() else "_" for c in raw_time])
+                    suffix = self._angle_suffix(target_video)
+                    output_filename = f"{safe_time}_{suffix}.mp4"
+
             self.downloader_manager.download_video(
                 video_url=video_url,
                 destination_dir=destination_dir,
+                output_filename=output_filename,
                 notify_callback=self.notify,
             )
 
