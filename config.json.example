@@ -13,5 +13,7 @@
         "Referer": "https://course.hdu.edu.cn/?type=cas"
     },
     "downloader": "aria2c",
-    "download_angles": ["Teacher", "PPT"]
+    "download_angles": ["Teacher", "PPT"],
+    "start_date": "2024-09-01",
+    "end_date": "2025-01-31"
 }

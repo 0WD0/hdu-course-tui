@@ -45,6 +45,21 @@ def load_config(config_path):
         # Default is None, meaning download ALL angles.
         download_angles = config.get("download_angles", None)
 
+        # Configurable date range (explicit start/end or days back/forward)
+        # Priority: start_date/end_date > days_back/days_forward
+        start_date = config.get("start_date", None)
+        end_date = config.get("end_date", None)
+
+        # Fallback to days_back/days_forward if explicit dates not set
+        now = datetime.now()
+        if not start_date:
+            days_back = config.get("days_back", 150)
+            start_date = (now - timedelta(days=days_back)).strftime("%Y-%m-%d")
+
+        if not end_date:
+            days_forward = config.get("days_forward", 30)
+            end_date = (now + timedelta(days=days_forward)).strftime("%Y-%m-%d")
+
         # Validate download_angles
         if download_angles is not None:
             if isinstance(download_angles, str):
@@ -58,7 +73,7 @@ def load_config(config_path):
                 f"Warning: 'cookies' or 'headers' missing or empty in '{config_path}'."
             )
 
-        return cookies, headers, downloader, download_angles
+        return cookies, headers, downloader, download_angles, start_date, end_date
     except json.JSONDecodeError as e:
         print(f"Error: Failed to parse JSON configuration: {e}")
         sys.exit(1)
@@ -171,7 +186,15 @@ class CourseApp(App):
         ("k", "cursor_up", "Up"),
     ]
 
-    def __init__(self, cookies, headers, downloader=None, download_angles=None):
+    def __init__(
+        self,
+        cookies,
+        headers,
+        downloader=None,
+        download_angles=None,
+        start_date=None,
+        end_date=None,
+    ):
         super().__init__()
         self.cookies = cookies
         self.headers = headers
@@ -179,6 +202,8 @@ class CourseApp(App):
         self.download_angles = (
             download_angles  # List of allowed angles (Teacher, Student, PPT)
         )
+        self.start_date = start_date
+        self.end_date = end_date
         self.course_data = defaultdict(list)
         self.current_course_name = None
         self.course_id_map = {}
@@ -474,9 +499,14 @@ class CourseApp(App):
     async def load_courses(self):
         self.query_one("#status_bar", Static).update("Loading curriculum...")
 
-        now = datetime.now()
-        start_date = (now - timedelta(days=150)).strftime("%Y-%m-%d")
-        end_date = (now + timedelta(days=30)).strftime("%Y-%m-%d")
+        start_date = self.start_date
+        end_date = self.end_date
+
+        # Fallback safeguard if somehow None (should be handled by load_config)
+        if not start_date:
+            start_date = (datetime.now() - timedelta(days=150)).strftime("%Y-%m-%d")
+        if not end_date:
+            end_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
 
         try:
             all_records = []
@@ -492,8 +522,6 @@ class CourseApp(App):
                     )
 
                     params = {
-                        "beginTime": start_date,
-                        "endTime": end_date,
                         "page.pageIndex": page_index,
                         "page.pageSize": page_size,
                     }
@@ -514,9 +542,25 @@ class CourseApp(App):
 
                     page_index += 1
 
+            # Client-side filtering to ensure strict date range adherence
+            # (API might be loose or ignore params)
+            filtered_records = []
+            for record in all_records:
+                # courBeginTime format is typically "YYYY-MM-DD HH:MM:SS"
+                begin_time = record.get("courBeginTime", "")
+                if not begin_time:
+                    continue
+
+                # Compare string prefixes (YYYY-MM-DD)
+                # start_date/end_date are "YYYY-MM-DD"
+                # We simply check if the date part is within range
+                rec_date = begin_time.split(" ")[0]
+                if start_date <= rec_date <= end_date:
+                    filtered_records.append(record)
+
             self.course_data.clear()
             self.course_id_map.clear()
-            for record in all_records:
+            for record in filtered_records:
                 subj_name = record.get("subjName", "Unknown Course")
                 self.course_data[subj_name].append(record)
 
@@ -532,7 +576,7 @@ class CourseApp(App):
                 list_view.append(ListItem(Label(f"{course} ({count})"), id=safe_id))
 
             self.query_one("#status_bar", Static).update(
-                f"Loaded {len(all_records)} recordings across {len(self.course_data)} courses."
+                f"Loaded {len(filtered_records)} recordings (filtered from {len(all_records)}) across {len(self.course_data)} courses."
             )
 
             if sorted_courses:
@@ -616,12 +660,16 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    cookies, headers, downloader, download_angles = load_config(args.config)
+    cookies, headers, downloader, download_angles, start_date, end_date = load_config(
+        args.config
+    )
 
     app = CourseApp(
         cookies=cookies,
         headers=headers,
         downloader=downloader,
         download_angles=download_angles,
+        start_date=start_date,
+        end_date=end_date,
     )
     app.run()

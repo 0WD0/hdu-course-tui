@@ -64,12 +64,16 @@ pip install httpx textual
         "Referer": "https://course.hdu.edu.cn/?type=cas"
     },
     "downloader": "aria2c",
-    "download_angles": ["Teacher", "PPT"]
+    "download_angles": ["Teacher", "PPT"],
+    "start_date": "2024-09-01",
+    "end_date": "2025-01-31"
 }
 ```
-> **提示**: 
-> *   `downloader` 字段可选，支持 `"aria2c"`, `"fdm"`, `"wget"`。如果不填，默认会自动检测系统中最优的工具（优先 Aria2）。
-> *   `download_angles` 字段可选，用于批量下载时过滤特定视角。可选值：`"Teacher"` (教师), `"Student"` (学生), `"PPT"`。如不填，默认下载所有视角。
+> **提示**:
+> *   `downloader`: 可选，支持 `"aria2c"`, `"fdm"`, `"wget"`。默认为自动检测。
+> *   `download_angles`: 可选，用于批量下载时过滤视角。可选值：`"Teacher"`, `"Student"`, `"PPT"`。
+> *   `start_date` / `end_date`: 可选，精确过滤课程日期范围 (YYYY-MM-DD)。
+> *   如果不配置具体日期，默认抓取过去 150 天到未来 30 天的课程。
 
 ## 📖 使用说明
 
