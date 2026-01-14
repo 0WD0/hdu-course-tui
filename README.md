@@ -107,7 +107,7 @@ python3 course_tui.py
 
 ## 🤖 关于开发
 
-本项目是 **Vide Coding** 产物，从零开始到功能完备（包括 TUI 界面、批量下载、多视角支持），全程耗时约 **2 小时**。
+本项目是 **Vibe Coding** 产物，从零开始到功能完备（包括 TUI 界面、批量下载、多视角支持），全程耗时约 **2 小时**。
 
 ---
 *Happy Coding & Learning!*
