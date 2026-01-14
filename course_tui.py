@@ -379,12 +379,26 @@ class CourseApp(App):
             self.notify("No recordings to download", severity="warning")
             return
 
+        eligible_recordings = [
+            r for r in recordings if r.get("vodDeleteStatus", 0) == 0
+        ]
+        skipped = len(recordings) - len(eligible_recordings)
+        if skipped:
+            self.notify(
+                f"Skipping {skipped} recordings with vodDeleteStatus != 0",
+                severity="warning",
+            )
+
+        if not eligible_recordings:
+            self.notify("No downloadable recordings found", severity="warning")
+            return
+
         self.query_one("#status_bar", Static).update(
-            f"Preparing batch download for {len(recordings)} recordings..."
+            f"Preparing batch download for {len(eligible_recordings)} recordings..."
         )
 
         tasks = []
-        for rec in recordings:
+        for rec in eligible_recordings:
             course_id = str(rec.get("id"))
             raw_time = rec.get("courBeginTime", "UnknownTime")
             safe_time = "".join([c if c.isalnum() else "_" for c in raw_time])
@@ -401,9 +415,9 @@ class CourseApp(App):
                 recordings_with_urls += 1
                 all_downloads.extend(item_list)
 
-        if recordings_with_urls < len(recordings):
+        if recordings_with_urls < len(eligible_recordings):
             self.notify(
-                f"Only {recordings_with_urls}/{len(recordings)} recordings returned URLs. "
+                f"Only {recordings_with_urls}/{len(eligible_recordings)} recordings returned URLs. "
                 "Some recordings may not have VOD yet or access may be limited.",
                 severity="warning",
             )
@@ -536,9 +550,10 @@ class CourseApp(App):
         table.clear()
 
         recordings = self.course_data.get(course_name, [])
-        recordings.sort(key=lambda x: x.get("courBeginTime", ""), reverse=True)
+        visible_recordings = [r for r in recordings if r.get("vodDeleteStatus", 0) == 0]
+        visible_recordings.sort(key=lambda x: x.get("courBeginTime", ""), reverse=True)
 
-        for rec in recordings:
+        for rec in visible_recordings:
             teacher = (
                 rec.get("teacNames", ["Unknown"])[0]
                 if rec.get("teacNames")
@@ -555,7 +570,7 @@ class CourseApp(App):
             )
 
         self.query_one("#status_bar", Static).update(
-            f"Showing {len(recordings)} recordings for {course_name}"
+            f"Showing {len(visible_recordings)} recordings for {course_name}"
         )
 
     async def load_courses(self):
@@ -631,7 +646,11 @@ class CourseApp(App):
 
             sorted_courses = sorted(self.course_data.keys())
             for index, course in enumerate(sorted_courses):
-                count = len(self.course_data[course])
+                count = sum(
+                    1
+                    for r in self.course_data[course]
+                    if r.get("vodDeleteStatus", 0) == 0
+                )
                 safe_id = f"course-{uuid.uuid4().hex}"
                 self.course_id_map[safe_id] = course
 
