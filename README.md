@@ -43,23 +43,176 @@ pip install httpx textual
 ```
 
 ### 3. 配置账号 (Config)
+
 由于杭电统一认证系统的复杂性，本工具采用**手动抓取 Cookie** 的方式（最安全稳定）。
 
-1.  在项目根目录创建一个 `config.json` 文件。
-2.  用浏览器登录 [HDU 智慧教室平台](https://course.hdu.edu.cn/)。
-3.  按 `F12` 打开开发者工具，点击“网络 (Network)”标签。
-4.  刷新页面，找到任意一个 API 请求（如 `curriculum` 或 `course_vod_urls`）。
-5.  复制请求头中的 `Cookie` 和必要的 `Headers`（如 `Authorization`, `User-Agent`）。
-6.  参考下面的格式填入 `config.json`：
+#### 详细配置步骤
+
+##### 步骤 1: 创建配置文件
+在项目根目录下，复制 `config.json.example` 为 `config.json`：
+```bash
+cp config.json.example config.json
+```
+
+##### 步骤 2: 登录并打开开发者工具
+1. 使用浏览器（推荐 Chrome/Edge）访问 [HDU 智慧教室平台](https://course.hdu.edu.cn/)
+2. 使用你的学号和密码完成登录
+3. 登录成功后，按 `F12` 键打开浏览器开发者工具
+4. 切换到 **"网络 (Network)"** 标签页
+
+##### 步骤 3: 抓取 API 请求
+1. 在开发者工具的网络标签页中，刷新页面 (`F5` 或点击刷新按钮)
+2. 在网络请求列表中，找到以下任意一个 API 请求：
+   - `curriculum` - 课程列表接口
+   - `course_vod_urls` - 视频链接接口
+   - 任何包含 `jy-application-vod-he-hdu` 路径的请求
+3. 点击该请求，在右侧详情面板中选择 **"标头 (Headers)"** 选项卡
+
+##### 步骤 4: 提取 Cookies
+
+**⚠️ 重要提示：必须在"请求标头"中查找，不是"响应标头"！**
+
+在标头选项卡中，你会看到两个部分：
+- **响应标头 (Response Headers)** - ❌ **不要在这里找**，这里没有 Cookie 信息
+- **请求标头 (Request Headers)** - ✅ **在这里找**，向下滚动找到 `Cookie:` 字段
+
+**如何区分响应标头和请求标头？**
+- **响应标头**通常在上方，包含：
+  ```
+  HTTP/1.1 200
+  Content-Type: application/json;charset=UTF-8
+  Transfer-Encoding: chunked
+  Connection: keep-alive
+  Date: Wed, 14 Jan 2026 11:25:19 GMT
+  Server: nginx/1.251
+  ... (等等)
+  ```
+  ❌ 如果你看到这些内容，说明你在响应标头，需要**继续向下滚动**！
+
+- **请求标头**通常在下方，包含：
+  ```
+  GET /jy-application-vod-he-hdu/v1/curriculum HTTP/1.1
+  Host: course.hdu.edu.cn
+  Connection: keep-alive
+  User-Agent: Mozilla/5.0 ...
+  Accept: application/json, text/plain, */*
+  Referer: https://course.hdu.edu.cn/?type=cas
+  Cookie: jy-application-vod-he=xxx; SESSION=yyy; route=zzz; ...
+  ... (等等)
+  ```
+  ✅ 这里才有 `Cookie:` 字段！
+
+在**请求标头 (Request Headers)** 中找到 **"Cookie:"** 字段（注意有冒号）。
+
+**⚠️ 重要：请复制你看到的所有 Cookie，不要只复制下表列出的！**
+
+常见的 Cookie 包括（但不限于）：
+
+| Cookie 名称 | 说明 | 备注 |
+|------------|------|------|
+| `jy-application-vod-he` | 应用会话标识 | 通常都有 |
+| `SESSION` | 用户会话 ID | 部分用户有 |
+| `route` | 路由信息 | 通常都有 |
+| `cmbox` | 系统标识 | 部分用户有 |
+| `_webvpn_key` | VPN 密钥 | 使用 VPN 时有 |
+| `webvpn_username` | VPN 用户名 | 使用 VPN 时有 |
+| `_bl_usercode` | 用户代码 | 部分用户有 |
+| `_bl_dept` | 部门信息 | 部分用户有 |
+| `at_check` | 自动检测标记 | 可选 |
+
+**注意**：
+- 不同用户、不同登录方式看到的 Cookie 可能不同
+- **只要是 Cookie 行里的，全部复制到 config.json 中**
+- 如果你的 Cookie 中没有上表某些项（如 `SESSION` 或 `cmbox`），这是正常的，不需要自己添加
+
+**提取方法**：
+
+在**请求标头 (Request Headers)** 部分，Cookie 字段的完整格式如下：
+```
+Cookie: jy-application-vod-he=xxx; _bl_usercode=xxx; _bl_dept=05; route=xxx; _webvpn_key=xxx; webvpn_username=xxx
+```
+
+或者可能是这样（不同用户不同）：
+```
+Cookie: jy-application-vod-he=abc123; SESSION=def456; route=xyz789; cmbox=xxx; at_check=true
+```
+
+每个 cookie 的格式为 `名称=值`，多个 cookie 之间用分号和空格 `; ` 分隔。
+
+**具体步骤**：
+1. 找到 `Cookie:` 行（在请求标头中，不是响应标头）
+2. 复制 `Cookie:` 后面的**全部内容**（所有 cookie）
+3. 将每个 cookie 按照 `名称=值` 的格式拆分
+4. 将**所有** cookie 的名称和值分别填入 `config.json` 的 `cookies` 对象中
+
+**示例**：
+
+**示例 1：使用 VPN 登录的用户**
+如果你看到：
+```
+Cookie: jy-application-vod-he=MGE1YTM5NWYt...; _bl_usercode=24050821; _bl_dept=05; route=1768387327.12.4051.955845; _webvpn_key=eyJhbGciOiJIUzI1NiJ9...; webvpn_username=24050821%7C1768389908%7C...
+```
+
+则在 `config.json` 中填写（**复制所有 cookie**）：
+```json
+{
+    "cookies": {
+        "jy-application-vod-he": "MGE1YTM5NWYt...",
+        "_bl_usercode": "24050821",
+        "_bl_dept": "05",
+        "route": "1768387327.12.4051.955845",
+        "_webvpn_key": "eyJhbGciOiJIUzI1NiJ9...",
+        "webvpn_username": "24050821%7C1768389908%7C..."
+    }
+}
+```
+
+**示例 2：普通登录的用户**
+如果你看到：
+```
+Cookie: jy-application-vod-he=abc123; SESSION=def456; route=xyz789; cmbox=test
+```
+
+则在 `config.json` 中填写：
+```json
+{
+    "cookies": {
+        "jy-application-vod-he": "abc123",
+        "SESSION": "def456",
+        "route": "xyz789",
+        "cmbox": "test"
+    }
+}
+```
+
+**注意**：不同用户的 Cookie 组成不同，以你实际看到的为准！
+
+##### 步骤 5: 提取 Headers
+在同一个请求的标头中，还需要复制以下字段：
+
+| Header 名称 | 说明 | 示例值 |
+|------------|------|--------|
+| `User-Agent` | 浏览器标识 | `Mozilla/5.0 (X11; Linux x86_64) ...` |
+| `Accept` | 接受的内容类型 | `application/json, text/plain, */*` |
+| `Referer` | 来源页面 | `https://course.hdu.edu.cn/?type=cas` |
+
+##### 步骤 6: 填写配置文件
+将提取的信息填入 `config.json`：
 
 ```json
 {
     "cookies": {
-        "JSESSIONID": "你的JSESSIONID...",
-        "route": "..."
+        "jy-application-vod-he": "从浏览器复制的值",
+        "route": "从浏览器复制的值",
+        "_bl_usercode": "从浏览器复制的值（如果有）",
+        "_bl_dept": "从浏览器复制的值（如果有）",
+        "_webvpn_key": "从浏览器复制的值（如果有）",
+        "webvpn_username": "从浏览器复制的值（如果有）",
+        "SESSION": "从浏览器复制的值（如果有）",
+        "cmbox": "从浏览器复制的值（如果有）"
     },
     "headers": {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+        "User-Agent": "从浏览器复制的 User-Agent",
         "Accept": "application/json, text/plain, */*",
         "Referer": "https://course.hdu.edu.cn/?type=cas"
     },
@@ -67,9 +220,67 @@ pip install httpx textual
     "download_angles": ["Teacher", "PPT"]
 }
 ```
-> **提示**: 
-> *   `downloader` 字段可选，支持 `"aria2c"`, `"fdm"`, `"wget"`。如果不填，默认会自动检测系统中最优的工具（优先 Aria2）。
-> *   `download_angles` 字段可选，用于批量下载时过滤特定视角。可选值：`"Teacher"` (教师), `"Student"` (学生), `"PPT"`。如不填，默认下载所有视角。
+
+**注意**：只填写你实际看到的 Cookie，没有的不用写！
+
+#### 配置参数详细说明
+
+##### cookies 对象
+包含用于身份验证的所有 Cookie 信息。这些 Cookie 会随着时间过期，如果程序提示"认证失败"或"无法获取课程列表"，请重新抓取。
+
+##### headers 对象
+HTTP 请求头信息，用于模拟浏览器请求：
+- `User-Agent`: 浏览器标识字符串，建议使用你实际使用的浏览器的 User-Agent
+- `Accept`: 告诉服务器客户端可以接受的内容类型
+- `Referer`: 告诉服务器请求来自哪个页面
+
+##### downloader 字段（可选）
+指定下载工具，支持以下选项：
+
+| 值 | 说明 | 特点 |
+|----|------|------|
+| `"aria2c"` | Aria2 命令行下载器 | **推荐**。支持多线程、断点续传、速度最快 |
+| `"fdm"` | Free Download Manager | 图形界面下载管理器，适合 Windows 用户 |
+| `"wget"` | Wget 命令行工具 | 系统自带，稳定但速度较慢 |
+| `"curl"` | Curl 命令行工具 | 系统自带，基础下载功能 |
+| 不填写 | 自动检测 | 程序会自动检测并选择最优工具（优先级：aria2c > fdm > wget > curl） |
+
+**示例**：
+```json
+"downloader": "aria2c"
+```
+
+##### download_angles 字段（可选）
+指定批量下载时要下载的视角，可以节省空间和时间。
+
+| 值 | 说明 |
+|----|------|
+| `"Teacher"` | 教师全景视角（通常是教师讲课的画面） |
+| `"Student"` | 学生全景视角（通常是教室整体画面） |
+| `"PPT"` | PPT/屏幕分享视角（通常是 PPT 或教师屏幕内容） |
+
+**使用方法**：
+- 填写一个字符串数组，包含你想下载的视角
+- 留空或不填写该字段，则下载所有可用视角
+
+**示例**：
+```json
+// 只下载教师视角和 PPT
+"download_angles": ["Teacher", "PPT"]
+
+// 只下载 PPT
+"download_angles": ["PPT"]
+
+// 下载所有视角（默认行为）
+// 方式1: 不写这个字段
+// 方式2: 写成空数组或 null
+"download_angles": null
+```
+
+> **⚠️ 重要提示**：
+> - **不要分享你的 `config.json`**，其中包含你的登录凭证
+> - Cookie 会过期，如果遇到认证问题，请重新抓取 Cookie
+> - 如果使用 VPN 访问，确保抓取 Cookie 时和运行程序时都使用 VPN
 
 ## 📖 使用说明
 
@@ -101,9 +312,107 @@ python3 course_tui.py
 *   **不要分享你的 `config.json`**，其中包含你的登录凭证。
 *   本工具仅供学习交流使用，请勿用于非法用途或对学校服务器造成过大压力。
 
+
+
+## 🔧 常见问题与解决方案
+
+### 1. 程序提示"认证失败"或"无法获取课程列表"
+**原因**：Cookie 已过期或无效，或者从错误的位置复制了 Cookie。
+
+**解决方案**：
+- 确保从 **"请求标头 (Request Headers)"** 中复制 Cookie，**不是从"响应标头 (Response Headers)"**
+  - 响应标头中显示的是服务器返回的信息（如 `Content-Type`、`Date` 等），没有 `Cookie:` 字段
+  - 请求标头中才有浏览器发送给服务器的 `Cookie:` 信息
+- 重新登录 HDU 智慧教室平台
+- 按照配置步骤重新抓取 Cookie（确保在请求标头中查找）
+- **复制你看到的所有 Cookie**，不要只复制文档中列出的几个
+- 不同用户的 Cookie 组成不同，如果你没有 `SESSION` 或 `cmbox`，这是正常的
+
+### 1.5. 在 F12 中找不到 Cookie 字段 / 看到的是 Content-Type、Date 等
+**原因**：你可能在查看"响应标头 (Response Headers)"，而不是"请求标头 (Request Headers)"。
+
+**解决方案**：
+- 在 F12 开发者工具的"网络 (Network)"标签页中，点击任意一个 API 请求
+- 在右侧面板中选择"标头 (Headers)"选项卡
+- **向下滚动**，找到"请求标头 (Request Headers)"部分（通常在页面下半部分）
+- 如果你看到的是：
+  ```
+  HTTP/1.1 200
+  Content-Type: application/json;charset=UTF-8
+  Date: Wed, 14 Jan 2026 11:25:19 GMT
+  ```
+  这些是**响应标头**，继续向下滚动找到**请求标头**部分
+- 在请求标头中，找到 `Cookie:` 字段（注意有冒号）
+
+### 1.6. 我的 Cookie 中没有 SESSION 或 cmbox，是否需要自己添加？
+**原因**：不同用户、不同登录方式，Cookie 的组成是不同的。
+
+**解决方案**：
+- **不需要自己添加**！只复制你实际看到的 Cookie
+- 使用 VPN 登录的用户通常有 `_webvpn_key`、`webvpn_username` 等，可能没有 `SESSION`
+- 直接登录的用户可能有 `SESSION`、`cmbox` 等
+- 只要你有 `jy-application-vod-he` 和 `route`，通常就能正常使用
+- 如果程序仍然无法工作，确保复制了**所有**你看到的 Cookie（包括 `_bl_usercode`、`_bl_dept` 等）
+
+### 1.7. 程序启动后异常退出，没有错误提示
+**原因**：可能是配置文件错误、Cookie 缺失或已过期。
+
+**解决方案**：
+- 程序启动时会显示配置加载信息，检查是否有错误提示：
+  ```
+  配置加载成功:
+    - Cookies: 3 项 (jy-application-vod-he, route, _bl_usercode)
+    - Headers: 3 项
+  ```
+- 如果看到"缺少必需的 Cookie"错误，按照提示补充缺失的 Cookie
+- 如果程序进入 TUI 界面后闪退，查看底部状态栏的错误信息
+- 常见错误信息：
+  - **"HTTP 401" 或 "认证失败"**: Cookie 已过期，需要重新获取
+  - **"HTTP 403"**: 权限不足或 Cookie 不正确
+  - **"请求超时"**: 网络问题或需要连接 VPN
+  - **"无法连接到服务器"**: 检查网络连接或 VPN
+  - **"API 返回数据格式错误"**: Cookie 可能已过期
+
+### 2. 下载速度很慢
+**原因**：使用的下载工具不支持多线程。
+
+**解决方案**：
+- 安装并配置 Aria2：`sudo apt install aria2`（Ubuntu/Debian）或 `brew install aria2`（MacOS）
+- 在 `config.json` 中设置 `"downloader": "aria2c"`
+
+### 3. 程序无法找到课程
+**原因**：日期范围设置问题或 Cookie 权限不足。
+
+**解决方案**：
+- 检查你的账号是否有权限访问该课程
+- 确保在浏览器中能够正常看到课程列表
+- 重新抓取 Cookie
+
+### 4. 下载的视频无法播放
+**原因**：下载不完整或视频格式问题。
+
+**解决方案**：
+- 使用 Aria2 的断点续传功能重新下载
+- 使用 VLC 播放器打开（支持更多格式）
+- 检查下载的文件大小是否正常
+
+### 5. 通过 VPN 访问时无法使用
+**原因**：Cookie 是在 VPN 环境下获取的，但程序运行时未连接 VPN。
+
+**解决方案**：
+- 确保抓取 Cookie 和运行程序时都使用相同的网络环境
+- 如果使用 VPN，需要在 Cookie 中包含 `_webvpn_key` 字段
+
+### 6. 批量下载时只下载了部分视角
+**原因**：`download_angles` 配置过滤了其他视角。
+
+**解决方案**：
+- 检查 `config.json` 中的 `download_angles` 设置
+- 如果想下载所有视角，删除该字段或设置为 `null`
+
 ## 🤖 关于开发
 
-本项目是 **Vide Coding** 产物，从零开始到功能完备（包括 TUI 界面、批量下载、多视角支持），全程耗时约 **2 小时**。
+本项目是 **Vibe Coding** 产物，从零开始到功能完备（包括 TUI 界面、批量下载、多视角支持），全程耗时约 **2 小时**。
 
 ---
 *Happy Coding & Learning!*
