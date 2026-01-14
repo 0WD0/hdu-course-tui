@@ -69,7 +69,40 @@ cp config.json.example config.json
 3. 点击该请求，在右侧详情面板中选择 **"标头 (Headers)"** 选项卡
 
 ##### 步骤 4: 提取 Cookies
-在请求标头中找到 **"Cookie"** 字段，你需要提取以下 Cookie 值：
+
+**⚠️ 重要提示：必须在"请求标头"中查找，不是"响应标头"！**
+
+在标头选项卡中，你会看到两个部分：
+- **响应标头 (Response Headers)** - ❌ **不要在这里找**，这里没有 Cookie 信息
+- **请求标头 (Request Headers)** - ✅ **在这里找**，向下滚动找到 `Cookie:` 字段
+
+**如何区分响应标头和请求标头？**
+- **响应标头**通常在上方，包含：
+  ```
+  HTTP/1.1 200
+  Content-Type: application/json;charset=UTF-8
+  Transfer-Encoding: chunked
+  Connection: keep-alive
+  Date: Wed, 14 Jan 2026 11:25:19 GMT
+  Server: nginx/1.251
+  ... (等等)
+  ```
+  ❌ 如果你看到这些内容，说明你在响应标头，需要**继续向下滚动**！
+
+- **请求标头**通常在下方，包含：
+  ```
+  GET /jy-application-vod-he-hdu/v1/curriculum HTTP/1.1
+  Host: course.hdu.edu.cn
+  Connection: keep-alive
+  User-Agent: Mozilla/5.0 ...
+  Accept: application/json, text/plain, */*
+  Referer: https://course.hdu.edu.cn/?type=cas
+  Cookie: jy-application-vod-he=xxx; SESSION=yyy; route=zzz; ...
+  ... (等等)
+  ```
+  ✅ 这里才有 `Cookie:` 字段！
+
+在**请求标头 (Request Headers)** 中找到 **"Cookie:"** 字段（注意有冒号），你需要提取以下 Cookie 值：
 
 | Cookie 名称 | 说明 | 是否必需 |
 |------------|------|---------|
@@ -81,9 +114,36 @@ cp config.json.example config.json
 | `at_check` | 自动检测标记 | 可选 |
 
 **提取方法**：
-- 在 Cookie 字段中，每个 cookie 的格式为 `名称=值; `
-- 例如：`jy-application-vod-he=abc123; SESSION=def456; route=xyz789`
-- 将每个 cookie 的名称和值分别填入 `config.json` 的 `cookies` 对象中
+
+在**请求标头 (Request Headers)** 部分，Cookie 字段的完整格式如下：
+```
+Cookie: jy-application-vod-he=abc123; SESSION=def456; route=xyz789; cmbox=xxx; at_check=true
+```
+
+每个 cookie 的格式为 `名称=值`，多个 cookie 之间用分号和空格 `; ` 分隔。
+
+**具体步骤**：
+1. 找到 `Cookie:` 行（在请求标头中，不是响应标头）
+2. 复制 `Cookie:` 后面的全部内容
+3. 将每个 cookie 按照 `名称=值` 的格式拆分
+4. 将名称和值分别填入 `config.json` 的 `cookies` 对象中
+
+**示例**：
+如果你看到：
+```
+Cookie: jy-application-vod-he=abc123; SESSION=def456; route=xyz789
+```
+
+则在 `config.json` 中填写：
+```json
+{
+    "cookies": {
+        "jy-application-vod-he": "abc123",
+        "SESSION": "def456",
+        "route": "xyz789"
+    }
+}
+```
 
 ##### 步骤 5: 提取 Headers
 在同一个请求的标头中，还需要复制以下字段：
@@ -211,12 +271,31 @@ python3 course_tui.py
 ## 🔧 常见问题与解决方案
 
 ### 1. 程序提示"认证失败"或"无法获取课程列表"
-**原因**：Cookie 已过期或无效。
+**原因**：Cookie 已过期或无效，或者从错误的位置复制了 Cookie。
 
 **解决方案**：
+- 确保从 **"请求标头 (Request Headers)"** 中复制 Cookie，**不是从"响应标头 (Response Headers)"**
+  - 响应标头中显示的是服务器返回的信息（如 `Content-Type`、`Date` 等），没有 `Cookie:` 字段
+  - 请求标头中才有浏览器发送给服务器的 `Cookie:` 信息
 - 重新登录 HDU 智慧教室平台
-- 按照配置步骤重新抓取 Cookie
+- 按照配置步骤重新抓取 Cookie（确保在请求标头中查找）
 - 确保复制了所有必需的 Cookie 字段（`jy-application-vod-he`、`SESSION`、`route`）
+
+### 1.5. 在 F12 中找不到 Cookie 字段 / 看到的是 Content-Type、Date 等
+**原因**：你可能在查看"响应标头 (Response Headers)"，而不是"请求标头 (Request Headers)"。
+
+**解决方案**：
+- 在 F12 开发者工具的"网络 (Network)"标签页中，点击任意一个 API 请求
+- 在右侧面板中选择"标头 (Headers)"选项卡
+- **向下滚动**，找到"请求标头 (Request Headers)"部分（通常在页面下半部分）
+- 如果你看到的是：
+  ```
+  HTTP/1.1 200
+  Content-Type: application/json;charset=UTF-8
+  Date: Wed, 14 Jan 2026 11:25:19 GMT
+  ```
+  这些是**响应标头**，继续向下滚动找到**请求标头**部分
+- 在请求标头中，找到 `Cookie:` 字段（注意有冒号）
 
 ### 2. 下载速度很慢
 **原因**：使用的下载工具不支持多线程。
