@@ -38,6 +38,16 @@ def load_config(config_path):
             config = json.load(f)
 
         cookies = config.get("cookies", {})
+
+        # Support raw cookie string (Simpler for users)
+        if isinstance(cookies, str):
+            cookie_dict = {}
+            for item in cookies.split(";"):
+                if "=" in item:
+                    k, v = item.split("=", 1)
+                    cookie_dict[k.strip()] = v.strip()
+            cookies = cookie_dict
+
         headers = config.get("headers", {})
         downloader = config.get("downloader", None)
 

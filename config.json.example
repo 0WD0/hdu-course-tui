@@ -1,12 +1,5 @@
 {
-    "cookies": {
-        "jy-application-vod-he": "",
-        "SESSION": "",
-        "cmbox": "",
-        "route": "",
-        "_webvpn_key": "",
-        "at_check": "true"
-    },
+    "cookies": "jy-application-vod-he=你的值; route=你的值(可选)",
     "headers": {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
         "Accept": "application/json, text/plain, */*",

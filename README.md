@@ -54,22 +54,29 @@ pip install httpx textual
 
 ```json
 {
-    "cookies": {
-        "JSESSIONID": "你的JSESSIONID...",
-        "route": "..."
-    },
+    "cookies": "jy-application-vod-he=你的关键Cookie...; route=...",
     "headers": {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 ...",
         "Accept": "application/json, text/plain, */*",
         "Referer": "https://course.hdu.edu.cn/?type=cas"
     },
     "downloader": "aria2c",
     "download_angles": ["Teacher", "PPT"],
     "start_date": "2024-09-01",
-    "end_date": "2025-01-31"
+    "end_date": "2025-01-31",
+    "aria2_args": [
+        "-j", "16",
+        "-x", "16",
+        "-s", "16",
+        "-k", "1M"
+    ]
 }
 ```
 > **提示**:
+> *   `cookies`: 核心凭证。
+>   *   **必填项**: `jy-application-vod-he` (这是极域系统的核心会话凭证)。
+>   *   **选填项**: `route` (负载均衡路由节点，通常可选，但保留可提高连接稳定性)。
+>   *   支持**字典格式**或直接粘贴浏览器抓取的**字符串格式**（`key=value; key2=value2`）。
 > *   `downloader`: 可选，支持 `"aria2c"`, `"fdm"`, `"wget"`。默认为自动检测。
 > *   `download_angles`: 可选，用于批量下载时过滤视角。可选值：`"Teacher"`, `"Student"`, `"PPT"`。
 > *   `start_date` / `end_date`: 可选，精确过滤课程日期范围 (YYYY-MM-DD)。
