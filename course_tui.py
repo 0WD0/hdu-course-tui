@@ -108,6 +108,20 @@ def load_config(config_path):
         sys.exit(1)
 
 
+def angle_label(angle_index):
+    angle_map = {0: "Teacher", 1: "Student", 2: "PPT"}
+    if isinstance(angle_index, int):
+        return angle_map.get(angle_index, f"Angle{angle_index + 1}")
+    return "Angle"
+
+
+def angle_suffix(video_item, default_index=None):
+    angle_index = video_item.get("_angle_index")
+    if angle_index is None:
+        angle_index = default_index
+    return angle_label(angle_index)
+
+
 class AngleSelectionModal(Screen):
     BINDINGS = [("escape", "cancel", "Cancel")]
 
@@ -116,15 +130,12 @@ class AngleSelectionModal(Screen):
         self.video_list = video_list
 
     def compose(self) -> ComposeResult:
-        angle_map = {0: "Teacher", 1: "Student", 2: "PPT"}
         yield Container(
             Label("Select Camera Angle:", id="modal-title"),
             ListView(
                 *[
                     ListItem(
-                        Label(
-                            f"{v.get('viewName', f'Angle {i + 1}')} ({angle_map.get(i, 'Unknown')})"
-                        ),
+                        Label(angle_label(i)),
                         id=f"angle-{i}",
                     )
                     for i, v in enumerate(self.video_list)
@@ -321,18 +332,7 @@ class CourseApp(App):
             self.notify("No recording selected", severity="warning")
 
     def _angle_suffix(self, video_item):
-        raw_view_name = video_item.get("viewName", "")
-        angle_index = video_item.get("_angle_index")
-
-        if "PPT" in raw_view_name or angle_index == 2:
-            return "PPT"
-        if "学生" in raw_view_name or "Student" in raw_view_name or angle_index == 1:
-            return "Student"
-        if "教师" in raw_view_name or "Teacher" in raw_view_name or angle_index == 0:
-            return "Teacher"
-        if isinstance(angle_index, int):
-            return f"Angle{angle_index + 1}"
-        return "Angle"
+        return angle_suffix(video_item)
 
     async def fetch_video_url(self, course_id, batch_mode=False, file_prefix=""):
         params = {"courseId": course_id}
