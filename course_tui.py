@@ -7,6 +7,7 @@ import argparse
 import sys
 import os
 import asyncio
+import traceback
 from downloader import DownloaderManager
 from datetime import datetime, timedelta
 from textual.app import App, ComposeResult
@@ -302,7 +303,11 @@ class CourseApp(App):
                 cookies=self.cookies, headers=self.headers, verify=False, timeout=30.0
             ) as client:
                 response = await client.get(DETAIL_API_URL, params=params)
-                response.raise_for_status()
+                
+                # Check HTTP status  
+                if response.status_code != 200:
+                    return []
+                    
                 data = response.json()
                 video_list = data.get("data", {}).get("courseVodViewList", [])
 
@@ -421,7 +426,7 @@ class CourseApp(App):
                 
                 # Check HTTP status
                 if response.status_code != 200:
-                    error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                    error_msg = f"HTTP {response.status_code}"
                     self.query_one("#status_bar", Static).update(f"Error: {error_msg}")
                     self.notify(
                         f"获取视频失败 (HTTP {response.status_code})\n请检查 Cookie 是否正确",
@@ -429,7 +434,6 @@ class CourseApp(App):
                     )
                     return
                 
-                response.raise_for_status()
                 data = response.json()
 
                 video_list = data.get("data", {}).get("courseVodViewList", [])
@@ -550,7 +554,7 @@ class CourseApp(App):
                 
                 # Check HTTP status
                 if response.status_code != 200:
-                    error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                    error_msg = f"HTTP {response.status_code}"
                     self.query_one("#status_bar", Static).update(f"Error: {error_msg}")
                     self.notify(
                         f"认证失败或网络错误 (HTTP {response.status_code})\n请检查 Cookie 是否正确或已过期",
@@ -559,7 +563,6 @@ class CourseApp(App):
                     )
                     return
                 
-                response.raise_for_status()
                 data = response.json()
 
                 # Validate response structure
@@ -664,7 +667,15 @@ class CourseApp(App):
                 cookies=self.cookies, headers=self.headers, verify=False
             ) as client:
                 response = await client.get(DETAIL_API_URL, params=params)
-                response.raise_for_status()
+                
+                # Check HTTP status
+                if response.status_code != 200:
+                    self.notify(
+                        f"获取视频失败 (HTTP {response.status_code})",
+                        severity="error"
+                    )
+                    return
+                    
                 data = response.json()
 
                 video_list = data.get("data", {}).get("courseVodViewList", [])
@@ -721,7 +732,6 @@ if __name__ == "__main__":
         print("2. Cookie 是否已过期（需要重新获取）")
         print("3. 网络连接是否正常")
         print("4. 如果使用 VPN，确保 VPN 已连接")
-        import traceback
         print("\n详细错误信息:")
         traceback.print_exc()
         sys.exit(1)
