@@ -3,6 +3,7 @@ import subprocess
 import os
 import sys
 import platform
+from urllib.parse import urlparse
 
 
 class DownloaderManager:
@@ -51,21 +52,15 @@ class DownloaderManager:
 
         return False, None
 
-    def download_video(self, video_url, notify_callback=None):
-        """
-        Download a single video.
-
-        Args:
-            video_url (str): The URL to download.
-            notify_callback (func): Optional function to send notifications back to UI.
-                                    Signature: notify_callback(message, severity="information")
-        """
-
+    def download_video(self, video_url, destination_dir=None, notify_callback=None):
         def notify(msg, severity="information"):
             if notify_callback:
                 notify_callback(msg, severity=severity)
             else:
                 print(f"[{severity.upper()}] {msg}")
+
+        if destination_dir:
+            os.makedirs(destination_dir, exist_ok=True)
 
         # 1. Preferred Downloader (Configured)
         if self.preferred_downloader == "fdm":
@@ -93,25 +88,48 @@ class DownloaderManager:
 
         if shutil.which("wget"):
             cli_tool = "wget"
-            cli_cmd = (
-                f"wget '{video_url}'" if not self.is_windows else f'wget "{video_url}"'
-            )
+            if destination_dir:
+                if self.is_windows:
+                    cli_cmd = f'wget -P "{destination_dir}" "{video_url}"'
+                else:
+                    cli_cmd = f"wget -P '{destination_dir}' '{video_url}'"
+            else:
+                cli_cmd = (
+                    f"wget '{video_url}'"
+                    if not self.is_windows
+                    else f'wget "{video_url}"'
+                )
         elif shutil.which("aria2c"):
             cli_tool = "aria2c"
             safety_args = ["--auto-file-renaming=false", "-c"]
             final_args = safety_args + self.aria2_args
             args_str = " ".join(final_args)
-            if self.is_windows:
-                cli_cmd = f'aria2c "{video_url}" {args_str}'
+            if destination_dir:
+                if self.is_windows:
+                    cli_cmd = f'aria2c -d "{destination_dir}" "{video_url}" {args_str}'
+                else:
+                    cli_cmd = f"aria2c -d '{destination_dir}' '{video_url}' {args_str}"
             else:
-                cli_cmd = f"aria2c '{video_url}' {args_str}"
+                if self.is_windows:
+                    cli_cmd = f'aria2c "{video_url}" {args_str}'
+                else:
+                    cli_cmd = f"aria2c '{video_url}' {args_str}"
         elif shutil.which("curl"):
             cli_tool = "curl"
-            cli_cmd = (
-                f"curl -O '{video_url}'"
-                if not self.is_windows
-                else f'curl -O "{video_url}"'
-            )
+            if destination_dir:
+                url_path = urlparse(video_url).path
+                filename = os.path.basename(url_path) or "downloaded_file"
+                output_path = os.path.join(destination_dir, filename)
+                if self.is_windows:
+                    cli_cmd = f'curl -o "{output_path}" "{video_url}"'
+                else:
+                    cli_cmd = f"curl -o '{output_path}' '{video_url}'"
+            else:
+                cli_cmd = (
+                    f"curl -O '{video_url}'"
+                    if not self.is_windows
+                    else f'curl -O "{video_url}"'
+                )
 
         if cli_tool:
             success, term_used = self._launch_terminal_command(
@@ -129,24 +147,39 @@ class DownloaderManager:
         # 4. Background Fallback (if no terminal found or launch failed)
         if shutil.which("wget"):
             try:
-                subprocess.Popen(["wget", video_url])
-                notify(
-                    "Downloading in background (wget). Check working directory.",
-                    severity="information",
-                )
+                if destination_dir:
+                    subprocess.Popen(["wget", "-P", destination_dir, video_url])
+                    notify("Downloading in background (wget).", severity="information")
+                else:
+                    subprocess.Popen(["wget", video_url])
+                    notify(
+                        "Downloading in background (wget). Check working directory.",
+                        severity="information",
+                    )
             except Exception as e:
                 notify(f"Background download failed: {e}", severity="error")
         elif shutil.which("aria2c"):
             try:
                 safety_args = ["--auto-file-renaming=false", "-c"]
                 final_args = safety_args + self.aria2_args
-                subprocess.Popen(["aria2c", video_url] + final_args)
+                if destination_dir:
+                    subprocess.Popen(
+                        ["aria2c", "-d", destination_dir, video_url] + final_args
+                    )
+                else:
+                    subprocess.Popen(["aria2c", video_url] + final_args)
                 notify("Downloading in background (aria2c).", severity="information")
             except Exception as e:
                 notify(f"Background download failed: {e}", severity="error")
         elif shutil.which("curl"):
             try:
-                subprocess.Popen(["curl", "-O", video_url])
+                if destination_dir:
+                    url_path = urlparse(video_url).path
+                    filename = os.path.basename(url_path) or "downloaded_file"
+                    output_path = os.path.join(destination_dir, filename)
+                    subprocess.Popen(["curl", "-o", output_path, video_url])
+                else:
+                    subprocess.Popen(["curl", "-O", video_url])
                 notify("Downloading in background (curl).", severity="information")
             except Exception as e:
                 notify(f"Background download failed: {e}", severity="error")

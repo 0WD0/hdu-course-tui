@@ -492,8 +492,18 @@ class CourseApp(App):
             self.query_one("#status_bar", Static).update(
                 f"Starting download: {video_url}"
             )
+            if self.current_course_name:
+                safe_name = "".join(
+                    [c if c.isalnum() else "_" for c in self.current_course_name]
+                )
+                destination_dir = os.path.join(self.download_dir, safe_name)
+            else:
+                destination_dir = self.download_dir
+
             self.downloader_manager.download_video(
-                video_url=video_url, notify_callback=self.notify
+                video_url=video_url,
+                destination_dir=destination_dir,
+                notify_callback=self.notify,
             )
 
     def update_recordings_table(self, course_name):
