@@ -1,10 +1,10 @@
 {
     "cookies": {
-        "jy-application-vod-he": "",
-        "SESSION": "",
-        "cmbox": "",
-        "route": "",
-        "_webvpn_key": "",
+        "jy-application-vod-he": "从浏览器开发者工具中复制",
+        "SESSION": "从浏览器开发者工具中复制",
+        "cmbox": "从浏览器开发者工具中复制",
+        "route": "从浏览器开发者工具中复制",
+        "_webvpn_key": "如果使用VPN访问，从浏览器开发者工具中复制",
         "at_check": "true"
     },
     "headers": {
