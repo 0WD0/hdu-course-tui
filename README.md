@@ -1,4 +1,4 @@
-# HDU Course TUI (杭电课堂回放下载终端)
+# HDU Course TUI
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
@@ -16,6 +16,7 @@
     *   自动抓取某门课本学期**所有**回放。
     *   **全视角支持**：自动下载 **Teacher (教师全景)**、**Student (学生全景)** 和 **PPT** 画面。
     *   **智能命名**：文件自动按 `时间_视角.mp4` 命名，不再覆盖冲突。
+    *   **断点续传**：已下载的文件自动跳过，不会重复下载。
 *   ⚡ **多下载器支持**：
     *   **Aria2c** (推荐): 多线程、断点续传、批量处理，速度极快。
     *   **FDM (Free Download Manager)**: 支持调用本地 FDM 客户端下载。
@@ -30,37 +31,51 @@
 推荐安装 **aria2** 以获得最佳下载体验：
 *   **Ubuntu/Debian**: `sudo apt install aria2`
 *   **MacOS**: `brew install aria2`
-*   **Windows**: 下载 aria2 并在环境变量中配置。
+*   **Windows**: 下载 [aria2](https://github.com/aria2/aria2/releases) 并添加到环境变量，或使用 WSL。
 
 ### 2. 克隆与依赖安装
 ```bash
-# 克隆仓库
-git clone https://github.com/your-username/hdu-course-tui.git
+git clone https://github.com/0wd0/hdu-course-tui.git
 cd hdu-course-tui
-
-# 安装 Python 依赖
-pip install httpx textual
+pip install -r requirements.txt
 ```
 
-### 3. 配置账号 (Config)
-由于杭电统一认证系统的复杂性，本工具采用**手动抓取 Cookie** 的方式（最安全稳定）。
+### 3. 配置账号 (获取 Cookie)
+由于杭电统一认证系统的复杂性，本工具需要你提供登录后的凭证。
 
-1.  在项目根目录创建一个 `config.json` 文件。
-2.  用浏览器登录 [HDU 智慧教室平台](https://course.hdu.edu.cn/)。
-3.  按 `F12` 打开开发者工具，点击“网络 (Network)”标签。
-4.  刷新页面，找到任意一个 API 请求（如 `curriculum` 或 `course_vod_urls`）。
-5.  复制请求头中的 `Cookie` 和必要的 `Headers`（如 `Authorization`, `User-Agent`）。
-6.  参考下面的格式填入 `config.json`：
+#### 🌟 方案 A：使用浏览器插件 (推荐，最简单)
+推荐使用 **Cookie-Editor** 插件，可视化复制，无需懂代码。
 
+1.  **安装插件**：
+    *   [Chrome / Edge 版本](https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm)
+    *   [Firefox 版本](https://addons.mozilla.org/zh-CN/firefox/addon/cookie-editor/)
+2.  **登录网站**：用浏览器登录 [HDU 智慧教室平台](https://course.hdu.edu.cn/)。
+3.  **复制 Cookie**：
+    *   点击浏览器右上角的 **Cookie-Editor** 图标（类似饼干的形状）。
+    *   在搜索框输入 `jy`。
+    *   找到名为 **`jy-application-vod-he`** 的条目。
+    *   点击它，复制 **Value (值)** 一栏的内容。
+4.  **填入配置**：将复制的内容填入 `config.json` 的 `cookies` 字段。
+
+#### 🤓 方案 B：F12 开发者工具 (免安装)
+1.  按 `F12` 打开开发者工具，点击"网络 (Network)"标签。
+2.  刷新页面，找到任意一个 API 请求（如 `curriculum`）。
+3.  在"请求头 (Request Headers)"中找到 `Cookie` 字段，复制整个字符串。
+
+### 4. 填写配置文件
+在项目根目录创建 `config.json`。
+
+**最简配置 (只需一行 Cookie)：**
 ```json
 {
-    "cookies": "jy-application-vod-he=你的关键Cookie...; route=...",
-    "headers": {
-        "User-Agent": "Mozilla/5.0 ...",
-        "Accept": "application/json, text/plain, */*",
-        "Referer": "https://course.hdu.edu.cn/?type=cas"
-    },
-    "downloader": "aria2c",
+    "cookies": "jy-application-vod-he=你刚才复制的一长串字符..."
+}
+```
+
+**完整配置 (可选，用于自定义行为)：**
+```json
+{
+    "cookies": "jy-application-vod-he=...",
     "download_angles": ["Teacher", "PPT"],
     "start_date": "2024-09-01",
     "end_date": "2025-01-31",
@@ -72,16 +87,19 @@ pip install httpx textual
     ]
 }
 ```
-> **提示**:
-> *   `cookies`: 核心凭证。
->   *   **必填项**: `jy-application-vod-he` (这是极域系统的核心会话凭证)。
->   *   **选填项**: `route` (负载均衡路由节点，通常可选，但保留可提高连接稳定性)。
->   *   支持**字典格式**或直接粘贴浏览器抓取的**字符串格式**（`key=value; key2=value2`）。
-> *   `downloader`: 可选，支持 `"aria2c"`, `"fdm"`, `"wget"`。默认为自动检测。
-> *   `download_angles`: 可选，用于批量下载时过滤视角。可选值：`"Teacher"`, `"Student"`, `"PPT"`。
-> *   `start_date` / `end_date`: 可选，精确过滤课程日期范围 (YYYY-MM-DD)。
-> *   如果不配置具体日期，默认抓取过去 150 天到未来 30 天的课程。
-> *   `aria2_args`: 可选，自定义 aria2c 下载参数列表。默认为 `["-j", "16", "-x", "16", "-s", "16", "-k", "1M"]`。
+
+<details>
+<summary>📚 配置项说明 (点击展开)</summary>
+
+| 配置项                    | 必填 | 说明                                                                          |
+|---------------------------|------|-------------------------------------------------------------------------------|
+| `cookies`                 | ✅   | 核心凭证。只需 `jy-application-vod-he` 即可。支持字符串或字典格式。           |
+| `download_angles`         | ❌   | 批量下载时过滤视角。可选值：`"Teacher"`, `"Student"`, `"PPT"`。默认下载全部。 |
+| `start_date` / `end_date` | ❌   | 过滤课程日期范围 (YYYY-MM-DD)。默认：过去 150 天到未来 30 天。                |
+| `downloader`              | ❌   | 指定下载器：`"aria2c"`, `"fdm"`, `"wget"`。默认自动检测。                     |
+| `aria2_args`              | ❌   | 自定义 aria2c 参数。默认：`["-j", "16", "-x", "16", "-s", "16", "-k", "1M"]`  |
+
+</details>
 
 ## 📖 使用说明
 
@@ -104,10 +122,31 @@ python3 course_tui.py
 
 ### 📥 关于批量下载
 1.  按 `h` 切换到左侧课程列表。
-2.  移动光标选中你要下载的课（如“ACM程序设计”）。
+2.  移动光标选中你要下载的课（如"ACM程序设计"）。
 3.  按 `d` 键。
 4.  程序会自动抓取该课程下所有的视频链接（包含不同视角），生成下载列表。
 5.  自动调用 `aria2c` 开启 16 线程飞速下载到 `Downloads/课程名/` 目录下。
+
+## ❓ 常见问题 (FAQ)
+
+<details>
+<summary><b>Q: 提示 401 Unauthorized 或无法加载课程？</b></summary>
+
+**A:** Cookie 已过期。请重新登录网站，按照上面的步骤重新获取 Cookie 并更新 `config.json`。
+> 💡 Cookie 通常在 **24 小时** 左右过期，或者在你退出登录后失效。
+</details>
+
+<details>
+<summary><b>Q: 下载速度很慢？</b></summary>
+
+**A:** 确保你安装了 `aria2`。它支持多线程下载，速度比 wget/curl 快很多。
+</details>
+
+<details>
+<summary><b>Q: Windows 上运行有问题？</b></summary>
+
+**A:** 推荐使用 **WSL (Windows Subsystem for Linux)** 或 **Windows Terminal**。原生 CMD 可能存在编码问题。
+</details>
 
 ## ⚠️ 注意事项
 *   **不要分享你的 `config.json`**，其中包含你的登录凭证。
