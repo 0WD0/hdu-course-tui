@@ -2,47 +2,47 @@ import shutil
 import subprocess
 import os
 import sys
+import platform
 
 
 class DownloaderManager:
     def __init__(self, preferred_downloader=None, aria2_args=None):
         self.preferred_downloader = preferred_downloader
         self.aria2_args = aria2_args or ["-j", "16", "-x", "16", "-s", "16", "-k", "1M"]
-        self.terminals = [
-            ("gnome-terminal", ["--", "bash", "-c"]),
-            ("kitty", ["-e", "bash", "-c"]),
-            ("xterm", ["-e"]),
-            ("konsole", ["-e", "bash", "-c"]),
-            ("xfce4-terminal", ["-x", "bash", "-c"]),
-            ("x-terminal-emulator", ["-e"]),
-        ]
+        self.is_windows = platform.system() == "Windows"
+
+        if self.is_windows:
+            self.terminals = [
+                ("wt", ["-d", ".", "cmd", "/c"]),
+                ("cmd", ["/c", "start", "cmd", "/k"]),
+            ]
+        else:
+            self.terminals = [
+                ("gnome-terminal", ["--", "bash", "-c"]),
+                ("kitty", ["-e", "bash", "-c"]),
+                ("xterm", ["-e"]),
+                ("konsole", ["-e", "bash", "-c"]),
+                ("xfce4-terminal", ["-x", "bash", "-c"]),
+                ("x-terminal-emulator", ["-e"]),
+            ]
 
     def _launch_terminal_command(self, command, title="Download"):
-        """Helper to launch a terminal with the given command."""
-        # Special handling for terminals that need slightly different arg structures
-        # The self.terminals list contains (binary, [prefix_args...])
-
         for term, args in self.terminals:
             if shutil.which(term):
                 try:
-                    # Construct full command
-                    # If the terminal expects a single string for the command (like bash -c "cmd; read")
-                    # we need to be careful.
-
-                    full_args = [term] + args
-
-                    # Add the command to execute
-                    # We append a 'read' to keep the terminal open
-                    final_cmd = f"{command}; echo 'Press Enter to exit'; read"
-
-                    # For xterm and x-terminal-emulator which often take -e cmd args...
-                    if term in ["xterm", "x-terminal-emulator"]:
-                        # simple -e cmd
-                        full_cmd = [term, "-e", f"{command}; read"]
+                    if self.is_windows:
+                        if term == "wt":
+                            full_cmd = ["wt", "-d", ".", "cmd", "/k", command]
+                        else:
+                            full_cmd = ["cmd", "/c", "start", "cmd", "/k", command]
                     else:
-                        # gnome-terminal, kitty, etc usually work well with bash -c "..."
-                        full_cmd = list(full_args)
-                        full_cmd.append(final_cmd)
+                        full_args = [term] + args
+                        final_cmd = f"{command}; echo 'Press Enter to exit'; read"
+                        if term in ["xterm", "x-terminal-emulator"]:
+                            full_cmd = [term, "-e", f"{command}; read"]
+                        else:
+                            full_cmd = list(full_args)
+                            full_cmd.append(final_cmd)
 
                     subprocess.Popen(full_cmd)
                     return True, term
@@ -93,13 +93,25 @@ class DownloaderManager:
 
         if shutil.which("wget"):
             cli_tool = "wget"
-            cli_cmd = f"wget '{video_url}'"
+            cli_cmd = (
+                f"wget '{video_url}'" if not self.is_windows else f'wget "{video_url}"'
+            )
         elif shutil.which("aria2c"):
             cli_tool = "aria2c"
-            cli_cmd = f"aria2c '{video_url}'"
+            safety_args = ["--auto-file-renaming=false", "-c"]
+            final_args = safety_args + self.aria2_args
+            args_str = " ".join(final_args)
+            if self.is_windows:
+                cli_cmd = f'aria2c "{video_url}" {args_str}'
+            else:
+                cli_cmd = f"aria2c '{video_url}' {args_str}"
         elif shutil.which("curl"):
             cli_tool = "curl"
-            cli_cmd = f"curl -O '{video_url}'"
+            cli_cmd = (
+                f"curl -O '{video_url}'"
+                if not self.is_windows
+                else f'curl -O "{video_url}"'
+            )
 
         if cli_tool:
             success, term_used = self._launch_terminal_command(
@@ -126,7 +138,9 @@ class DownloaderManager:
                 notify(f"Background download failed: {e}", severity="error")
         elif shutil.which("aria2c"):
             try:
-                subprocess.Popen(["aria2c", video_url])
+                safety_args = ["--auto-file-renaming=false", "-c"]
+                final_args = safety_args + self.aria2_args
+                subprocess.Popen(["aria2c", video_url] + final_args)
                 notify("Downloading in background (aria2c).", severity="information")
             except Exception as e:
                 notify(f"Background download failed: {e}", severity="error")
@@ -168,7 +182,10 @@ class DownloaderManager:
             final_args = safety_args + self.aria2_args
 
             args_str = " ".join(final_args)
-            cmd = f"aria2c -i '{abs_list_file}' -d '{destination_dir}' {args_str}"
+            if self.is_windows:
+                cmd = f'aria2c -i "{abs_list_file}" -d "{destination_dir}" {args_str}'
+            else:
+                cmd = f"aria2c -i '{abs_list_file}' -d '{destination_dir}' {args_str}"
 
             success, term = self._launch_terminal_command(
                 cmd, title="Batch Download (aria2c)"

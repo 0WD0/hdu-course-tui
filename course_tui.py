@@ -407,7 +407,7 @@ class CourseApp(App):
         safe_name = "".join([c if c.isalnum() else "_" for c in course_name])
         list_file = f"urls_{safe_name}.txt"
 
-        with open(list_file, "w") as f:
+        with open(list_file, "w", encoding="utf-8") as f:
             for item in all_downloads:
                 url = item["url"]
                 filename = item["filename"]
