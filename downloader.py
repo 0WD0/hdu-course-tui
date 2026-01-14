@@ -163,7 +163,11 @@ class DownloaderManager:
 
         # 1. Aria2c (Best for batch)
         if shutil.which("aria2c"):
-            cmd = f"aria2c -i '{abs_list_file}' -d '{destination_dir}' -j 16"
+            # -j 16: Max 16 concurrent downloads
+            # -x 16: Max 16 connections PER server (per file)
+            # -s 16: Split file into 16 parts
+            # -k 1M: Min split size 1M
+            cmd = f"aria2c -i '{abs_list_file}' -d '{destination_dir}' -j 16 -x 16 -s 16 -k 1M"
             success, term = self._launch_terminal_command(
                 cmd, title="Batch Download (aria2c)"
             )
@@ -172,7 +176,21 @@ class DownloaderManager:
             else:
                 # Fallback background
                 subprocess.Popen(
-                    ["aria2c", "-i", abs_list_file, "-d", destination_dir, "-j", "16"]
+                    [
+                        "aria2c",
+                        "-i",
+                        abs_list_file,
+                        "-d",
+                        destination_dir,
+                        "-j",
+                        "16",
+                        "-x",
+                        "16",
+                        "-s",
+                        "16",
+                        "-k",
+                        "1M",
+                    ]
                 )
                 notify("Batch download started in background (aria2c)")
             return
